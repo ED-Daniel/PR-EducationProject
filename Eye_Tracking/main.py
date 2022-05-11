@@ -244,6 +244,7 @@ with map_face_mesh.FaceMesh(min_detection_confidence=0.5, min_tracking_confidenc
 
             smileWidth = getSmile(mesh_coords_z)
             utils.colorBackgroundText(frame, f'Smile width: {smileWidth}', FONTS, 1.0, (40, 420), 2, color[0], color[1], 8, 8)
+            utils.colorBackgroundText(frame, f'From camera: {mesh_coords_z[0][2]}', FONTS, 1.0, (40, 520), 2, color[0], color[1], 8, 8)
 
 
         # calculating  frame per seconds FPS
