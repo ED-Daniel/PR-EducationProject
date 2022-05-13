@@ -295,6 +295,7 @@ def findTiredRatio(blinks):
     ratio = normalizedBlinks * 5
     if ratio > 100:
         ratio = 100
+    return ratio
 
 
 blink_counting_start_time = time.time()
@@ -481,7 +482,7 @@ with map_face_mesh.FaceMesh(min_detection_confidence = 0.5, min_tracking_confide
                 
                 tiredRatio = findTiredRatio(BLINKS_IN_MINUTE)
                 utils.colorBackgroundText(frame, f'Blinks in minute: {BLINKS_IN_MINUTE}', FONTS, 1.0, (50, 200), 2, (0,255,0), utils.RED, 8, 8)
-                utils.colorBackgroundText(frame, f'Tired: {tiredRatio}%', FONTS, 1.0, (50, 900), 2, (0,255,0), utils.RED, 8, 8)
+                utils.colorBackgroundText(frame, f'Tired: {tiredRatio}%', FONTS, 1.0, (50, 600), 2, (0,255,0), utils.RED, 8, 8)
     
             # calculating  frame per seconds FPS
             end_time = time.time()-start_time
