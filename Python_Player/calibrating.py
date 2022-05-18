@@ -64,7 +64,7 @@ def blinkRatio(img, landmarks, right_indices, left_indices):
     ratio = (reRatio+leRatio)/2
     return ratio 
 
-def Calibrate(camera, face_mesh):
+def Calibrate(camera, face_mesh, demonstrate):
     # arrays
     flag_calib = False
     lips_width = 1
@@ -123,12 +123,12 @@ def Calibrate(camera, face_mesh):
                 cv.destroyAllWindows()
                 break
             cv.circle(frame, center = (round(x), round(y)), radius =100, color =utils.RED, thickness=-1)
-            utils.colorBackgroundText(frame, f"Please, look at the red circle and dont move. Remaining time: {round(remaining_time)}", FONTS, 1, (round(x - 550), round(y) - 200), 2, utils.RED, utils.YELLOW, 8, 8)
+            utils.colorBackgroundText(frame, f"Please, look at the red circle and don't move. Remaining time: {round(remaining_time)}", FONTS, 1, (round(x - 570), round(y) - 200), 2, utils.RED, utils.YELLOW, 8, 8)
         else:
             print("\n\n\n\n\nERROR!\n\n\n\n\n")
             cv.destroyAllWindows()
             break
-        cv.imshow('Calibrating', frame)
+        if demonstrate is True: cv.imshow('Calibrating', frame)
         key = cv.waitKey(2)
         if key==ord('q') or key==ord('Q'):
             cv.destroyAllWindows()
@@ -163,4 +163,3 @@ def Calibrate(camera, face_mesh):
         print("AVERAGE BLINKS PER MINUTE: ", blinks)
         print("AVERAGE BLINK DURATION: ", average_blink_dur)
     return flag_calib, lips_width, eyebrow_height_l, eyebrow_height_r, blinks, average_blink_dur
-
