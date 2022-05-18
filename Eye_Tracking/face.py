@@ -493,7 +493,7 @@ with map_face_mesh.FaceMesh(min_detection_confidence = 0.5, min_tracking_confide
             #cv.imwrite(f'img/frame_{frame_counter}.png', frame)
             cv.imshow('frame', frame)
             key = cv.waitKey(2)
-            if key==ord('q') or key ==ord('Q'):
+            if key==ord('q') or key == ord('Q'):
                 break
     cv.destroyAllWindows()
     camera.release()
