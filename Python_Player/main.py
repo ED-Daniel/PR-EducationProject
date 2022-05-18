@@ -17,6 +17,11 @@ FRAME_COUNTER = 0
 CEF_COUNTER = 0
 TOTAL_BLINKS = 0
 BLINKS_IN_MINUTE = 0
+
+HEAD_FLUCTUATION_IN_TIME = 0
+HEAD_FLUCTUATION_COUNTER = 0
+HEAD_CHECK_TIMER = 30
+
 # constants
 CLOSED_EYES_FRAME = 1
 FONTS = cv.FONT_HERSHEY_COMPLEX
@@ -137,6 +142,7 @@ def amazeCounter(dr, dl):
 with map_face_mesh.FaceMesh(min_detection_confidence = DETECT_CONF, min_tracking_confidence = TRACK_CONF, refine_landmarks = True) as face_mesh:
     # starting time here 
     blink_counting_start_time = time.time()
+    head_fluctuation_counting_starting_time = time.time()
     start_time = time.time()
     
     #calibration
@@ -233,7 +239,7 @@ with map_face_mesh.FaceMesh(min_detection_confidence = DETECT_CONF, min_tracking
       #                 utils.colorBackgroundText(frame, f'L_i pos: {left_iris}', FONTS, 1.0, (40, 300), 2, (0,255,0), utils.RED, 8, 8)
       # =============================================================================
                     except:
-                        print("iris tracking error")    
+                        print("Iris tracking error")    
                         
                 #attention
                 if lostAttention(angle_h, angle_v, screen_irises, center_screen, (frame_height / 2 * 0.8)) is True:
@@ -255,6 +261,15 @@ with map_face_mesh.FaceMesh(min_detection_confidence = DETECT_CONF, min_tracking
                 utils.colorBackgroundText(frame, f'Blinks in minute: {BLINKS_IN_MINUTE}', FONTS, 1.0, (30,200), 2, (0,255,0), utils.RED, 8, 8)
                 utils.colorBackgroundText(frame, f'Tiredness: {tiredRatio}%', FONTS, 1.0, (frame_width - 250, 200), 2, (0,255,0), utils.RED, 8, 8)
                 
+                # Head fluctuation
+                if abs(90 - angle_h) > 20:
+                    HEAD_FLUCTUATION_COUNTER += 1
+                
+                if time.time() - head_fluctuation_counting_starting_time >= HEAD_CHECK_TIMER:
+                    HEAD_FLUCTUATION_IN_TIME = HEAD_FLUCTUATION_COUNTER
+                    head_fluctuation_counting_starting_time = time.time()
+                    HEAD_FLUCTUATION_COUNTER = 0
+
             # calculating frame per seconds FPS
             end_time = time.time()-start_time
             fps = FRAME_COUNTER/end_time
