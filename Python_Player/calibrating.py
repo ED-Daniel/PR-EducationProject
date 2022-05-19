@@ -3,7 +3,10 @@ import time
 import utils
 
 FONTS = cv.FONT_HERSHEY_COMPLEX
-CALIBRATION_DURATION = 15.0
+CLOSED_EYES_FRAME = 1
+    
+CALIBRATION_DURATION = 15
+FACE_LOST_DETECTION = CALIBRATION_DURATION / 3
 
 # face bounder indices 
 FACE_OVAL = [ 10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109 ]
@@ -72,13 +75,15 @@ def Calibrate(camera, face_mesh, demonstrate):
     eyebrow_height_r = 1
     blinks = 1 
     average_blink_dur = 1
+    
     CALIBRATING_SMILE_POSITIONS = []
     CALIBRATING_EYEBROWS_POSITIONS = []
     CALIBRATING_BLINKS_DURATION = []
     BLINKS_COUNTER = 0
-    CLOSED_EYES_FRAME = 1
     CEF_COUNTER = 0
     start_time = time.time()
+    face_detection_start_timer = time.time()
+    
     while True:
         ret, frame = camera.read() # getting frame from camera 
         if not ret: 
@@ -102,8 +107,10 @@ def Calibrate(camera, face_mesh, demonstrate):
             CALIBRATING_SMILE_POSITIONS.append(tuple([leftCorner, rightCorner]))
             
             # Calibrating amaze
-            temp_eyebrow_height_r = utils.euclaideanDistance2D(mesh_coords[4], mesh_coords[193])
-            temp_eyebrow_height_l = utils.euclaideanDistance2D(mesh_coords[4], mesh_coords[417])
+            #temp_eyebrow_height_r = utils.euclaideanDistance3D(mesh_coords_z[4], mesh_coords_z[193])
+            #temp_eyebrow_height_l = utils.euclaideanDistance3D(mesh_coords_z[4], mesh_coords_z[417])
+            temp_eyebrow_height_l = utils.euclaideanDistance2D(mesh_coords[252], mesh_coords[295])
+            temp_eyebrow_height_r = utils.euclaideanDistance2D(mesh_coords[22], mesh_coords[65])
             CALIBRATING_EYEBROWS_POSITIONS.append(tuple([temp_eyebrow_height_l, temp_eyebrow_height_r]))
             
             # Calibrating tiredness
@@ -120,20 +127,31 @@ def Calibrate(camera, face_mesh, demonstrate):
             remaining_time = CALIBRATION_DURATION - (time.time()-start_time)
             if remaining_time <= 0:
                 flag_calib = True
-                cv.destroyAllWindows()
                 break
             cv.circle(frame, center = (round(x), round(y)), radius =100, color =utils.RED, thickness=-1)
             utils.colorBackgroundText(frame, f"Please, look at the red circle and don't move. Remaining time: {round(remaining_time)}", FONTS, 1, (round(x - 570), round(y) - 200), 2, utils.RED, utils.YELLOW, 8, 8)
         else:
-            print("\n\n\n\n\nERROR!\n\n\n\n\n")
-            cv.destroyAllWindows()
-            break
+            # cannot detect face
+            lost_face_detec_dur = time.time() - face_detection_start_timer
+            if lost_face_detec_dur >= FACE_LOST_DETECTION:
+                face_detection_start_timer = time.time()
+                print ("\n\n\nError: face is not detected, trying again\n\n\n")
+                CALIBRATING_SMILE_POSITIONS.clear()
+                CALIBRATING_EYEBROWS_POSITIONS.clear()
+                CALIBRATING_BLINKS_DURATION.clear()
+                start_time = time.time()
+                BLINKS_COUNTER = 0
+                CEF_COUNTER = 0            
+                cv.destroyAllWindows()
+                continue
+                
         if demonstrate is True: cv.imshow('Calibrating', frame)
         key = cv.waitKey(2)
         if key==ord('q') or key==ord('Q'):
-            cv.destroyAllWindows()
             break
-        
+    
+    cv.destroyAllWindows()
+    
     #average
     if len(CALIBRATING_SMILE_POSITIONS) > 0:
         lips_width = sum([utils.euclaideanDistance2D(i[0][:2], i[1][:2]) for i in CALIBRATING_SMILE_POSITIONS]) / len(CALIBRATING_SMILE_POSITIONS)
@@ -145,8 +163,8 @@ def Calibrate(camera, face_mesh, demonstrate):
     else:
         flag_calib = False
     if CALIBRATION_DURATION > 0:
-        blinks = (BLINKS_COUNTER / CALIBRATION_DURATION) * (60.0 / CALIBRATION_DURATION)
-    else: 
+        blinks = (BLINKS_COUNTER / CALIBRATION_DURATION) * 60.0
+    else:
         flag_calib = False
     if len(CALIBRATING_BLINKS_DURATION) > 0:
         average_blink_dur = sum([i for i in CALIBRATING_BLINKS_DURATION]) / len(CALIBRATING_BLINKS_DURATION)

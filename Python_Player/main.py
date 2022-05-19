@@ -13,25 +13,25 @@ blinks = 1
 average_blink_dur = 1
 
 # variables 
-FRAME_COUNTER = 0
-CEF_COUNTER = 0
-TOTAL_BLINKS = 0
-BLINKS_IN_MINUTE = 0
-HEAD_FLUCTUATION_IN_TIME = 0
-HEAD_FLUCTUATION_COUNTER = 0
 HEAD_CHECK_TIMER = 30
-CALIB_TIME = 240
-CALIBRATION_DURATION = 30
+RECALIB_TIME = 180
+EYES_CLOSE_DURATION = 5
+RECALIBRATION_DURATION = 30
+FACE_LOST_DETECTION = 10
+MAX_BLINK_DURATION = 5
 
 # constants
 CLOSED_EYES_FRAME = 1
 FONTS = cv.FONT_HERSHEY_COMPLEX
 
 #const
-KWIDTH = 1.2
-KHEIGHT = 1.65
-TRACK_CONF = 0.7
-DETECT_CONF = 0.7
+KWIDTH = 2.5
+KHEIGHT = 3
+KTRACK = 0.7
+KDETECT = 0.7
+KVISUAL_RAD = 0.8
+KAMAZE = 0.065
+KHAPPY = 0.2
 
 # face bounder indices 
 FACE_OVAL = [ 10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109 ]
@@ -63,22 +63,24 @@ def landmarksDetection(img, results):
     mesh_coord_z = [(int(point.x * img_width), int(point.y * img_height), 1 / (abs(int(point.z * 100)) + 0.000001) * 100) for point in results.multi_face_landmarks[0].landmark]#3D landmarks (z coords. are not real)
     return mesh_coord, mesh_coord_z
 
-# Blinking Ratio
-def blinkRatio(img, landmarks, right_indices, left_indices):
+# blinking Ratio
+def blinkRatio(img, landmarks):
     # RIGTH_EYE
     # horizontal line 
-    rh_right = landmarks[right_indices[0]]
-    rh_left = landmarks[right_indices[8]]
+    rh_right = landmarks[RIGHT_EYE[0]]
+    rh_left = landmarks[RIGHT_EYE[8]]
     # vertical line 
-    rv_top = landmarks[right_indices[12]]
-    rv_bottom = landmarks[right_indices[4]]
+    rv_top = landmarks[RIGHT_EYE[12]]
+    rv_bottom = landmarks[RIGHT_EYE[4]]
+    
     # LEFT_EYE 
     # horizontal line 
-    lh_right = landmarks[left_indices[0]]
-    lh_left = landmarks[left_indices[8]]
+    lh_right = landmarks[LEFT_EYE[0]]
+    lh_left = landmarks[LEFT_EYE[8]]
     # vertical line 
-    lv_top = landmarks[left_indices[12]]
-    lv_bottom = landmarks[left_indices[4]]
+    lv_top = landmarks[LEFT_EYE[12]]
+    lv_bottom = landmarks[LEFT_EYE[4]]
+    
     #DISTANCE
     #right eye
     rhDistance = utils.euclaideanDistance2D(rh_right, rh_left)
@@ -97,17 +99,17 @@ def blinkRatio(img, landmarks, right_indices, left_indices):
     ratio = (reRatio+leRatio)/2
     return ratio 
 
-#attention tracking
-def lostAttention(angleOX, angleOZ, point_ir, point_center, rad):
+# attention tracking
+def lostAttention(angleOX, angleOZ, point_ir, point_center, rad, eyes_closed):
     normalizedAngleOX = abs(90 - angleOX)
     #normalizedAngleOZ = abs(90 - angleOZ)
     flag = False
     if (point_ir[0] - point_center[0])**2 + (point_ir[1] - point_center[1])**2 <= rad**2: flag = True
-    if normalizedAngleOX > 30 or flag is False:
+    if normalizedAngleOX > 30 or flag is False or eyes_closed > EYES_CLOSE_DURATION is True:
         return True
     return False
 
-#tiredness counter
+# tiredness counter
 def findTiredRatio(bl, dur):
     norm_bl = bl - blinks
     if norm_bl < 0: norm_bl = 0
@@ -118,61 +120,75 @@ def findTiredRatio(bl, dur):
         ratio = 100
     return ratio
 
-#happiness counter
-def smileCounter(landmarks):
+# happiness counter
+def happyCounter(landmarks):
     minLength = lips_width
-    maxLength = lips_width * 0.2
-    leftCorner = landmarks[LIPS[0]][:2] # 61
-    rightCorner = landmarks[LIPS[10]][:2] # 291
-    #upCenter = landmarks[LIPS[25]][:2] # 0
-    #downCenter = landmarks[LIPS[5]][:2] # 17
+    maxLength = lips_width * KHAPPY
+    leftCorner = landmarks[LIPS[0]][:2]
+    rightCorner = landmarks[LIPS[10]][:2]
+    #upCenter = landmarks[LIPS[25]][:2]
+    #downCenter = landmarks[LIPS[5]][:2]
     lengthOfSmile = utils.euclaideanDistance2D(leftCorner, rightCorner)
     percent = round((lengthOfSmile - minLength) / maxLength * 100)
     if percent < 5: percent = 0
     elif percent > 100: percent = 100
     return percent
     
-#amazement counter
-def amazeCounter(dr, dl):
+# amazement counter
+def amazeCounter(dl, dr):
     minLength = (eyebrow_height_l + eyebrow_height_r) / 2
-    max_h = minLength * 0.045
+    # max_h = minLength * 0.045
+    max_h = minLength * KAMAZE
     percent = round((((dr + dl) / 2) - minLength) / max_h * 100)
     if percent > 100: percent = 100
     elif percent < 5: percent = 0
     return percent
 
-with map_face_mesh.FaceMesh(min_detection_confidence = DETECT_CONF, min_tracking_confidence = TRACK_CONF, refine_landmarks = True) as face_mesh:
-    # starting time here 
-    blink_counting_start_time = time.time()
-    start_time = time.time()
-    head_fluctuation_counting_starting_time = time.time()
-    recalibrating_starting_time = time.time()
-    recalibrate_start = 0
+with map_face_mesh.FaceMesh(min_detection_confidence = KDETECT, min_tracking_confidence = KTRACK, refine_landmarks = True) as face_mesh:
     
-    #calibration
+    # calibration
+    flag_calib = False
     flag_calib, lips_width, eyebrow_height_l, eyebrow_height_r, blinks, average_blink_dur = calibrating.Calibrate(camera, face_mesh, True)
     
+    # starting timers
+    blink_counting_start_time = time.time()
+    fps_start_time = time.time()
+    head_fluctuation_counting_start_timer = time.time()
+    recalibration_start_timer = time.time()
+    recalibrating_start_timer = 0 # recalibrating already started
+    blinks_start_timer = 0
+    recalibrating_blinks_start_timer = 0
+    face_detection_start_timer = time.time()
+    
     if flag_calib is True:
+        
         LAST_DURATION = 0
         AV_BLINK_DURATION = []
-        av_dur = average_blink_dur
+        FRAME_COUNTER = 0
+        CEF_COUNTER = 0
+        TOTAL_BLINKS = 0
+        BLINKS_IN_MINUTE = 0
+        HEAD_FLUCTUATION_IN_TIME = 0
+        HEAD_FLUCTUATION_COUNTER = 0
+        AV_DUR = average_blink_dur
+        IS_RECALIBRATING = False
         tiredRatio = 0
         
-        #recalib.
-        CALIBRATING_SMILE_POSITIONS = []
-        CALIBRATING_EYEBROWS_POSITIONS = []
-        CALIBRATING_BLINKS_DURATION = []
-        BLINKS_COUNTER2 = 0
-        CEF_COUNTER2 = 0
-        start_time2 = time.time()
+        # recalibrating fields
+        RECALIBRATING_SMILE_POSITIONS = []
+        RECALIBRATING_EYEBROWS_POSITIONS = []
+        RECALIBRATING_BLINKS_DURATION = []
+        RECALIBRATING_BLINKS_COUNTER = 0
+        RECALIBRATING_CEF_COUNTER = 0
 
         while True:
             FRAME_COUNTER +=1 # frame counter
             ret, frame = camera.read() # getting frame from camera 
             if not ret: 
-                break # no more frames break
+                print("\n\n\nError with camera!\n\n\n")
+                continue
             
-            #  resizing frame
+            # resizing frame
             frame = cv.resize(frame, None, fx=2, fy=2, interpolation=cv.INTER_CUBIC)
             frame_height, frame_width= frame.shape[:2]
             rgb_frame = cv.cvtColor(frame, cv.COLOR_RGB2BGR)
@@ -180,20 +196,22 @@ with map_face_mesh.FaceMesh(min_detection_confidence = DETECT_CONF, min_tracking
             
             if results.multi_face_landmarks:
                 mesh_coords, mesh_coords_z = landmarksDetection(frame, results)
-                ratio = blinkRatio(frame, mesh_coords, RIGHT_EYE, LEFT_EYE)
-                utils.colorBackgroundText(frame,  f'Ratio : {round(ratio,2)}', FONTS, 0.7, (30,100),2, utils.PINK, utils.YELLOW)
-                if CEF_COUNTER == 1: timer_started = time.time_ns() / 1000
+                ratio = blinkRatio(frame, mesh_coords)
+                utils.colorBackgroundText(frame, f'Ratio : {round(ratio,2)}', FONTS, 0.7, (30,100),2, utils.PINK, utils.YELLOW)
+                if CEF_COUNTER == 1: blinks_start_timer = time.time_ns() / 1000
                 if ratio > 5.5:
                     CEF_COUNTER +=1
-                    utils.colorBackgroundText(frame,  f'Blink', FONTS, 1.7, (int(frame_height/2), 100), 2, utils.YELLOW, 6, 6)
-                elif CEF_COUNTER>=CLOSED_EYES_FRAME:
+                    utils.colorBackgroundText(frame, 'BlINK', FONTS, 1.7, (int(frame_height/2), 100), 2, utils.YELLOW, 6, 6)
+                elif CEF_COUNTER >= CLOSED_EYES_FRAME:
                     TOTAL_BLINKS +=1
-                    LAST_DURATION = time.time_ns() / 1000 - timer_started
-                    #fale blink are not counted
-                    if LAST_DURATION < 200000 : AV_BLINK_DURATION.append(LAST_DURATION)
+                    LAST_DURATION = time.time_ns() / 1000 - blinks_start_timer
                     CEF_COUNTER =0
+                    # fail: blink is not counted
+                    if LAST_DURATION < MAX_BLINK_DURATION * 1000000 : 
+                        AV_BLINK_DURATION.append(LAST_DURATION)
+                        BLINKS_IN_MINUTE +=1
                 utils.colorBackgroundText(frame,  f'Total Blinks: {TOTAL_BLINKS}', FONTS, 0.7, (30,150),2)
-                utils.colorBackgroundText(frame,  f'Last blink duration mcsec: {round(LAST_DURATION, 2)}', FONTS, 0.7, (200,100),2)
+                utils.colorBackgroundText(frame,  f'Last blink duration mcsec: {round(LAST_DURATION, 2)}', FONTS, 0.7, (30,100), 2)
                 
                 #drawing eyes, lips, irises
 # =============================================================================
@@ -210,159 +228,218 @@ with map_face_mesh.FaceMesh(min_detection_confidence = DETECT_CONF, min_tracking
 #                 utils.pollyLines(frame,  [mesh_coords[p] for p in RIGHT_IRIS ], utils.PINK)
 # =============================================================================
                 
-                #head angles
+                # head angles
                 p1 = (0, int(frame_height / 2))
                 p2 = (int(frame_width), int(frame_height / 2))
                 vec3 = np.array([0, 0, 1000])
-                #angle between horizontal and face vertical lines
+                # angle between horizontal and face vertical lines
                 vec1 = np.array([p2[0] - p1[0], p2[1] - p1[1], 0])
                 vec2 = np.array([mesh_coords[175][0] - mesh_coords[151][0], mesh_coords[175][1] - mesh_coords[151][1], mesh_coords_z[175][2] - mesh_coords_z[151][2]])
-                angle_h = vg.angle(vec1, vec2, look=vg.basis.z)
-                angle_v = vg.angle(vec2, vec3, look=vg.basis.y)
-                #showing head angles
-                #utils.colorBackgroundText(frame, f'Hor_Angle: {round(angle_h, 0)}', FONTS, 1.0, (frame_width - 250, 250), 2, (0,255,0), utils.RED, 8, 8)
-                #utils.colorBackgroundText(frame, f'Ver_Angle: {round(angle_v, 0)}', FONTS, 1.0, (frame_width - 250, 250), 2, (0,255,0), utils.RED, 8, 8)
+                angle_h = vg.angle(vec1, vec2, look =vg.basis.z)
+                angle_v = vg.angle(vec2, vec3, look =vg.basis.y)
                 
-                #irises
+                # showing head angles
+# =============================================================================
+#                 utils.colorBackgroundText(frame, f'Hor_Angle: {round(angle_h, 0)}', FONTS, 1.0, (frame_width - 250, 250), 2, (0,255,0), utils.RED, 8, 8)
+#                 utils.colorBackgroundText(frame, f'Ver_Angle: {round(angle_v, 0)}', FONTS, 1.0, (frame_width - 250, 250), 2, (0,255,0), utils.RED, 8, 8)
+# =============================================================================
+                
+                # iris
                 r_iris_coords = [mesh_coords[p] for p in RIGHT_IRIS]
                 l_iris_coords = [mesh_coords[p] for p in LEFT_IRIS]
                 
-                if ratio < 5.5:
+                center_screen = [round(frame_width / 2.), round(frame_height / 2.)]
+                cv.circle(frame, center = (round(center_screen[0]), round(center_screen[1])), radius = round(frame_height / 2 * KVISUAL_RAD), color = utils.RED, thickness=2)
+                # tracking iris (if not blinking)           
+                if ratio <= 5.5:
                     r = utils.seg_intersect(np.array(r_iris_coords[0]), np.array(r_iris_coords[2]), np.array(r_iris_coords[1]), np.array(r_iris_coords[3]))
                     r_iris_center = [round(r[0]), round(r[1])]
                     l = utils.seg_intersect(np.array(l_iris_coords[0]), np.array(l_iris_coords[2]), np.array(l_iris_coords[1]), np.array(l_iris_coords[3]))
                     l_iris_center = [round(l[0]), round(l[1])]
                     try:
-                        c_r = utils.seg_intersect(np.array(mesh_coords[133]), np.array(mesh_coords[33]), np.array(mesh_coords[159]), np.array(mesh_coords[153]))
+                        c_r = utils.seg_intersect(np.array(mesh_coords[173]), np.array(mesh_coords[33]), np.array(mesh_coords[159]), np.array(mesh_coords[153]))
                         center_r = [round(c_r[0]), round(c_r[1])]
-                        c_l = utils.seg_intersect(np.array(mesh_coords[362]), np.array(mesh_coords[263]), np.array(mesh_coords[380]), np.array(mesh_coords[386]))
+                        c_l = utils.seg_intersect(np.array(mesh_coords[398]), np.array(mesh_coords[263]), np.array(mesh_coords[380]), np.array(mesh_coords[386]))
                         center_l = [round(c_l[0]), round(c_l[1])]
                         right_iris = [r_iris_center[0] - center_r[0], r_iris_center[1] - center_r[1]]
                         left_iris = [l_iris_center[0] - center_l[0], l_iris_center[1] - center_l[1]]
                         r_size = [utils.euclaideanDistance3D(mesh_coords_z[173], mesh_coords_z[33]), utils.euclaideanDistance3D(mesh_coords_z[159], mesh_coords_z[153])]
+                        
+# =============================================================================
+#                         cv.circle(frame, center = (round(center_r[0]), round(center_r[1])), radius = 10, color = utils.RED, thickness=2)
+#                         cv.circle(frame, center = (round(center_l[0]), round(center_l[1])), radius = 10, color = utils.RED, thickness=2)
+# =============================================================================
+                        
                         l_size = [utils.euclaideanDistance3D(mesh_coords_z[398], mesh_coords_z[263]), utils.euclaideanDistance3D(mesh_coords_z[380], mesh_coords_z[386])]
                         r_prop_k = [round(frame_width / r_size[0]), round(frame_height / r_size[1])]
                         l_prop_k = [round(frame_width / l_size[0]), round(frame_height / l_size[1])]
-                        center_screen = [round(frame_width / 2.), round(frame_height / 2.)]
-                        cv.circle(frame, center = (round(center_screen[0]), round(center_screen[1])), radius = round(frame_height / 2 * 0.8), color = utils.RED, thickness=2)
-                        #glance position on screen
-                        screen_iris_l = [center_screen[0] - (left_iris[0] * l_prop_k[0] * KWIDTH), center_screen[1] + (left_iris[1] * l_prop_k[1] * KHEIGHT)]
-                        screen_iris_r = [center_screen[0] - (right_iris[0] * r_prop_k[0] * KWIDTH), center_screen[1] + (right_iris[1] * r_prop_k[1] * KHEIGHT)]
+                        # glance position on screen
+                        screen_iris_l = [center_screen[0] - (left_iris[0] * l_prop_k[0] * KWIDTH), center_screen[1] + (left_iris[1] * l_prop_k[1] * KHEIGHT - 50)]
+                        screen_iris_r = [center_screen[0] - (right_iris[0] * r_prop_k[0] * KWIDTH), center_screen[1] + (right_iris[1] * r_prop_k[1] * KHEIGHT - 50)]
                         screen_irises = [round((screen_iris_l[0] + screen_iris_r[0]) / 2), round((screen_iris_l[1] + screen_iris_r[1]) / 2)]
-                        if utils.euclaideanDistance2D(screen_iris_l, screen_iris_r) < frame_width/2:
-                            cv.circle(frame, center = (round(screen_irises[0]), round(screen_irises[1])), radius = 50, color = utils.RED, thickness=2)
-                        #iris position
+                        if utils.euclaideanDistance2D(screen_iris_l, screen_iris_r) < frame_width/2: 
+                            cv.circle(frame, center = (round(screen_irises[0]), round(screen_irises[1])), radius = 40, color = utils.RED, thickness=2)
+                            
+                        # iris position
       # =============================================================================
       #                 utils.colorBackgroundText(frame, f'R_i pos: {right_iris}', FONTS, 1.0, (40, 270), 2, (0,255,0), utils.RED, 8, 8)
       #                 utils.colorBackgroundText(frame, f'L_i pos: {left_iris}', FONTS, 1.0, (40, 300), 2, (0,255,0), utils.RED, 8, 8)
       # =============================================================================
+      
                     except:
                         print("iris tracking error")    
                         
-                #attention
-                if lostAttention(angle_h, angle_v, screen_irises, center_screen, (frame_height / 2 * 0.8)) is True:
-                    utils.colorBackgroundText(frame, 'LOST ATTENTION!', FONTS, 1.7, (int(frame_height/2), 600), 2, utils.YELLOW, pad_x=6, pad_y=6)
+                # attention
+                temp = 0
+                if ratio > 5.4:
+                    temp = (time.time_ns() / 1000 - blinks_start_timer) / 1000000
+                if lostAttention(angle_h, angle_v, screen_irises, center_screen, (frame_height / 2 * KVISUAL_RAD), temp) is True:
+                    utils.colorBackgroundText(frame, 'ATTENTION LOST', FONTS, 1.7, (int(frame_width/2) - 100, int(frame_height/2)), 2, utils.YELLOW, pad_x=6, pad_y=6)
                     
-                #happiness
-                smile = smileCounter(mesh_coords_z)
-                utils.colorBackgroundText(frame, f'Happiness: {smile}', FONTS, 1.0, (frame_width - 250, 50), 2, (0,255,0), utils.RED, 8, 8)
+                # happiness
+                happiness = happyCounter(mesh_coords_z)
+                utils.colorBackgroundText(frame, f'Happiness: {happiness}%', FONTS, 1.0, (frame_width - 320, 50), 2, (0,255,0), utils.RED, 8, 8)
                 
-                #amaze
-                amaze = amazeCounter(utils.euclaideanDistance2D(mesh_coords[4], mesh_coords[193]), utils.euclaideanDistance2D(mesh_coords[4], mesh_coords[417]))
-                utils.colorBackgroundText(frame, f'Amaze: {amaze}', FONTS, 1.0, (frame_width - 250, 100), 2, (0,255,0), utils.RED, 8, 8)
+                # amaze
+                # amazement = amazeCounter(utils.euclaideanDistance3D(mesh_coords_z[4], mesh_coords_z[193]), utils.euclaideanDistance3D(mesh_coords_z[4], mesh_coords_z[417]))
+                amazement = amazeCounter(utils.euclaideanDistance2D(mesh_coords[22], mesh_coords[65]), utils.euclaideanDistance2D(mesh_coords[252], mesh_coords[295]))
+                utils.colorBackgroundText(frame, f'Amazement: {amazement}%', FONTS, 1.0, (frame_width - 320, 100), 2, (0,255,0), utils.RED, 8, 8)
                 
-                #tiredness
+                # tiredness
                 if time.time() - blink_counting_start_time >= 60:
-                    if len(AV_BLINK_DURATION) is 0: av_dur = average_blink_dur
-                    av_dur = sum([i for i in AV_BLINK_DURATION]) / len(AV_BLINK_DURATION)
-                    BLINKS_IN_MINUTE = TOTAL_BLINKS - BLINKS_IN_MINUTE
+                    if len(AV_BLINK_DURATION) == 0: AV_DUR = average_blink_dur
+                    AV_DUR = sum([i for i in AV_BLINK_DURATION]) / len(AV_BLINK_DURATION)
                     blink_counting_start_time = time.time()
                     AV_BLINK_DURATION.clear()
-                    tiredRatio = findTiredRatio(BLINKS_IN_MINUTE, av_dur)
-                    #utils.colorBackgroundText(frame, f'Blinks in minute: {BLINKS_IN_MINUTE}', FONTS, 1.0, (30,200), 2, (0,255,0), utils.RED, 8, 8)
+                    tiredRatio = findTiredRatio(BLINKS_IN_MINUTE, AV_DUR)
+                    BLINKS_IN_MINUTE = 0
+                    
+                    # showing blinks in minute
+# =============================================================================
+#                     utils.colorBackgroundText(frame, f'Blinks in minute: {BLINKS_IN_MINUTE}', FONTS, 1.0, (30,200), 2, (0,255,0), utils.RED, 8, 8)
+# =============================================================================
+                    
                 utils.colorBackgroundText(frame, f'Tiredness: {tiredRatio}%', FONTS, 1.0, (frame_width - 250, 200), 2, (0,255,0), utils.RED, 8, 8)
 
-                #recalibrating
-                # if time.time() - recalibrating_starting_time >= CALIB_TIME and flag_calib is False:
-                #     flag_calib = False
-                #     # Calibrating happiness
-                #     leftCorner = mesh_coords_z[LIPS[0]]
-                #     rightCorner = mesh_coords_z[LIPS[10]]
-                #     CALIBRATING_SMILE_POSITIONS.append(tuple([leftCorner, rightCorner]))
+                # recalibrating
+                if RECALIBRATION_DURATION - recalibrating_start_timer <= 0 and IS_RECALIBRATING is False: 
+                    temp = False
+
+                    #average
+                    if len(RECALIBRATING_SMILE_POSITIONS) > 0:
+                        lips_width = sum([utils.euclaideanDistance2D(i[0][:2], i[1][:2]) for i in RECALIBRATING_SMILE_POSITIONS]) / len(RECALIBRATING_SMILE_POSITIONS)
+                        temp = True
+                    else:
+                        temp = False
+                    if len(RECALIBRATING_EYEBROWS_POSITIONS) > 0:
+                        eyebrow_height_l = sum([i[0] for i in RECALIBRATING_EYEBROWS_POSITIONS]) / len(RECALIBRATING_EYEBROWS_POSITIONS)
+                        eyebrow_height_r = sum([i[1] for i in RECALIBRATING_EYEBROWS_POSITIONS]) / len(RECALIBRATING_EYEBROWS_POSITIONS)
+                        temp = True
+                    else:
+                        temp = False
+                    if RECALIBRATION_DURATION > 0:
+                        blinks = (RECALIBRATING_BLINKS_COUNTER / RECALIBRATION_DURATION) * 60.0
+                        temp = True
+                    else: 
+                        temp = False
+                    if len(RECALIBRATING_BLINKS_DURATION) > 0:
+                        average_blink_dur = sum([i for i in RECALIBRATING_BLINKS_DURATION]) / len(RECALIBRATING_BLINKS_DURATION)
+                        if average_blink_dur <= 0: average_blink_dur = 1
+                        temp = True
+                    else:
+                        temp = False
                         
-                #     # Calibrating amaze
-                #     temp_eyebrow_height_r = utils.euclaideanDistance2D(mesh_coords[4], mesh_coords[193])
-                #     temp_eyebrow_height_l = utils.euclaideanDistance2D(mesh_coords[4], mesh_coords[417])
-                #     CALIBRATING_EYEBROWS_POSITIONS.append(tuple([temp_eyebrow_height_l, temp_eyebrow_height_r]))
+                    if temp is True:
+                        #printing recalibration results
+                        print("RECALIBRATING RESULTS: ")
+                        print("NEW AVERAGE MOUTH LENGTH: ", lips_width)
+                        print("NEW AVERAGE LEFT EYEBROW HEIGHT: ", eyebrow_height_l)
+                        print("NEW AVERAGE RIGHT EYEBROW HEIGHT: ", eyebrow_height_r)
+                        print("NEW AVERAGE BLINKS PER MINUTE: ", blinks)
+                        print("NEW AVERAGE BLINK DURATION: ", average_blink_dur)
+                        recalibration_start_timer = time.time()
+                        recalibrating_start_timer = 0
+                    else:
+                        print("\n\n\nError: recalibrating has failed, restarting...\n\n\n")
+                        IS_RECALIBRATING = True
+                        recalibrating_start_timer = time.time()
                         
-                #     # Calibrating tiredness
-                #     if CEF_COUNTER2 == 1: timer_started = time.time_ns() / 1000
-                #     if ratio2 > 5.5:
-                #         CEF_COUNTER2 +=1
-                #     else:
-                #         if CEF_COUNTER2 >= CLOSED_EYES_FRAME:
-                #             BLINKS_COUNTER2 +=1
-                #             CALIBRATING_BLINKS_DURATION.append(time.time_ns() / 1000 - timer_started)
-                #             timer_started = time.time_ns() / 1000
-                #             CEF_COUNTER2 =0
-                        
-                #         #average
-                #         if len(CALIBRATING_SMILE_POSITIONS) > 0:
-                #                     lips_width = sum([utils.euclaideanDistance2D(i[0][:2], i[1][:2]) for i in CALIBRATING_SMILE_POSITIONS]) / len(CALIBRATING_SMILE_POSITIONS)
-                #                     flag_calib = True
-                #         else:
-                #                     flag_calib = False
-                #         if len(CALIBRATING_EYEBROWS_POSITIONS) > 0:
-                #                     eyebrow_height_l = sum([i[0] for i in CALIBRATING_EYEBROWS_POSITIONS]) / len(CALIBRATING_EYEBROWS_POSITIONS)
-                #                     eyebrow_height_r = sum([i[1] for i in CALIBRATING_EYEBROWS_POSITIONS]) / len(CALIBRATING_EYEBROWS_POSITIONS)
-                #                     flag_calib = True
-                #         else:
-                #                     flag_calib = False
-                #         if CALIBRATION_DURATION > 0:
-                #                     blinks = (BLINKS_COUNTER / CALIBRATION_DURATION) * (60.0 / CALIBRATION_DURATION)
-                #                     flag_calib = True
-                #         else: 
-                #                     flag_calib = False
-                #         if len(CALIBRATING_BLINKS_DURATION) > 0:
-                #                     average_blink_dur = sum([i for i in CALIBRATING_BLINKS_DURATION]) / len(CALIBRATING_BLINKS_DURATION)
-                #                     if average_blink_dur <= 0: average_blink_dur = 1
-                #                     flag_calib = True
-                #         else:
-                #                     flag_calib = False
-                                
-                #                 #printing results
-                #         if flag_calib is True:
-                #             print("NEW CALIBRATING RESULTS: ")
-                #             print("NEW AVERAGE MOUTH LENGTH: ", lips_width)
-                #             print("NEW AVERAGE LEFT EYEBROW HEIGHT: ", eyebrow_height_l)
-                #             print("NEW AVERAGE RIGHT EYEBROW HEIGHT: ", eyebrow_height_r)
-                #             print("NEW AVERAGE BLINKS PER MINUTE: ", blinks)
-                #             print("NEW AVERAGE BLINK DURATION: ", average_blink_dur)
+                    RECALIBRATING_SMILE_POSITIONS.clear()
+                    RECALIBRATING_EYEBROWS_POSITIONS.clear()
+                    RECALIBRATING_BLINKS_DURATION.clear()
+                    RECALIBRATING_BLINKS_COUNTER = 0
+                    RECALIBRATING_CEF_COUNTER = 0 
+                      
+                elif time.time() - recalibration_start_timer >= RECALIB_TIME and IS_RECALIBRATING is False: 
+                    IS_RECALIBRATING = True
+                    RECALIBRATING_SMILE_POSITIONS.clear()
+                    RECALIBRATING_EYEBROWS_POSITIONS.clear()
+                    RECALIBRATING_BLINKS_DURATION.clear()
+                    RECALIBRATING_BLINKS_COUNTER = 0
+                    RECALIBRATING_CEF_COUNTER = 0 
+                    recalibrating_start_timer = time.time()
+
+                elif IS_RECALIBRATING is True:
+                    # Calibrating happiness
+                    leftCorner = mesh_coords_z[LIPS[0]]
+                    rightCorner = mesh_coords_z[LIPS[10]]
+                    RECALIBRATING_SMILE_POSITIONS.append(tuple([leftCorner, rightCorner]))
+                                        
+                    # Calibrating amaze
+                    # temp_eyebrow_height_r = utils.euclaideanDistance3D(mesh_coords_z[4], mesh_coords_z[193])
+                    # temp_eyebrow_height_l = utils.euclaideanDistance3D(mesh_coords_z[4], mesh_coords_z[417])
+                    temp_eyebrow_height_l = utils.euclaideanDistance2D(mesh_coords[252], mesh_coords[295])
+                    temp_eyebrow_height_r = utils.euclaideanDistance2D(mesh_coords[22], mesh_coords[65])
+                    RECALIBRATING_EYEBROWS_POSITIONS.append(tuple([temp_eyebrow_height_l, temp_eyebrow_height_r]))
+                                   
+                    recalibrating_ratio = blinkRatio(frame, mesh_coords)
                     
-                #     remaining_time = CALIBRATION_DURATION - (time.time()-start_time)
-                #     if remaining_time <= 0:
-                #         flag_calib = True
-                #     recalibrating_starting_time = time.time()
+                    # Calibrating tiredness
+                    if RECALIBRATING_CEF_COUNTER == 1: recalibrating_blinks_start_timer = time.time_ns() / 1000
+                    if recalibrating_ratio > 5.4:
+                        RECALIBRATING_CEF_COUNTER +=1
+                    else:
+                        if RECALIBRATING_CEF_COUNTER >= CLOSED_EYES_FRAME:
+                            RECALIBRATING_BLINKS_COUNTER +=1
+                            RECALIBRATING_BLINKS_DURATION.append(time.time_ns() / 1000 - recalibrating_blinks_start_timer)
+                            recalibrating_blinks_start_timer = time.time_ns() / 1000
+                            RECALIBRATING_BLINKS_COUNTER =0
+                    recalibrating_duration_remaining = RECALIBRATION_DURATION - (time.time() - recalibrating_start_timer)
+                    if recalibrating_duration_remaining <= 0:
+                        IS_RECALIBRATING = False
                     
-                #head fulctuation
+                # head fulctuation
                 if abs(90 - angle_h) > 30:
                     HEAD_FLUCTUATION_COUNTER += 1
-                if time.time() - head_fluctuation_counting_starting_time >= HEAD_CHECK_TIMER:
+                if time.time() - head_fluctuation_counting_start_timer >= HEAD_CHECK_TIMER:
                     HEAD_FLUCTUATION_IN_TIME = HEAD_FLUCTUATION_COUNTER
                     head_fluctuation_counting_starting_time = time.time()
                     HEAD_FLUCTUATION_COUNTER = 0
                 utils.colorBackgroundText(frame, f'Head fluctuation per 30s: {HEAD_FLUCTUATION_IN_TIME}%', FONTS, 1.0, (10, 250), 2, (0,255,0), utils.RED, 8, 8)
                 
-            # calculating frame per seconds FPS
-            end_time = time.time()-start_time
-            fps = FRAME_COUNTER/end_time
+            else:
+                # cannot detect face
+                lost_face_detec_dur = time.time() - face_detection_start_timer
+                
+                if lost_face_detec_dur >= FACE_LOST_DETECTION:
+                    IS_RECALIBRATING = False
+                    RECALIBRATING_SMILE_POSITIONS.clear()
+                    RECALIBRATING_EYEBROWS_POSITIONS.clear()
+                    RECALIBRATING_BLINKS_DURATION.clear()
+                    RECALIBRATING_BLINKS_COUNTER = 0
+                    RECALIBRATING_CEF_COUNTER = 0 
+                    face_detection_start_timer = time.time()
+                    print ("\n\n\nError: face is not detected\n\n\n")
+                    continue
+                
+            # calculating FPS
+            end_time = time.time() - fps_start_time
+            fps = FRAME_COUNTER / end_time
             frame = utils.textWithBackground(frame, f'FPS: {round(fps,1)}', FONTS, 1.0, (30, 50), bgOpacity=0.9, textThickness=2)
             cv.imshow('Tracking', frame)
             key = cv.waitKey(2)
             if key==ord('q') or key ==ord('Q'):
                 break
-        else:
-            print ("face is not detected")
             
     cv.destroyAllWindows()
     camera.release()
