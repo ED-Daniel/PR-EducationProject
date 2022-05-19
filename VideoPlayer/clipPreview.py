@@ -11,7 +11,7 @@ from moviepy.decorators import (
 from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip
 
 pg.init()
-pg.display.set_caption("MoviePy")
+pg.display.set_caption("Плеер Badi")
 
 
 def imdisplay(imarray, globalSurface, screen=None, position=(0, 0)):

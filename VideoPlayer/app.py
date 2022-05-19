@@ -1,13 +1,15 @@
 import pygame
 from pygame.locals import *
 from moviepy.editor import *
-
-from Python_Player.main import FONTS
 from clipPreview import preview
 import cv2
 from PySide2 import QtCore, QtWidgets
 import qimage2ndarray
+import sys
+sys.path.insert(0, "Python_Player/main.py")
+sys.path.insert(0, "Python_Player/utils.py")
 from Python_Player import main, utils
+
 class App:
     cameraOn = False
     def __init__(self, width = 800, height = 600, fps = 30):
@@ -54,7 +56,7 @@ class App:
         self.on_cleanup()
     def putIndexesOnScreen(self, frame = main.camera):
         tiredness = main.findTiredRatio(main.BLINKS_IN_MINUTE)
-        frame = utils.textWithBackground(frame, f'Tiredness: {tiredness}%', FONTS, 1.0, (30, 50), bgOpacity=0.9,
+        frame = utils.textWithBackground(frame, f'Tiredness: {tiredness}%', main.FONTS, 1.0, (30, 50), bgOpacity=0.9,
                                              textThickness=2)
         amazement = main.amazeCounter()
 
