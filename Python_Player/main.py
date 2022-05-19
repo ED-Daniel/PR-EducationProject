@@ -117,13 +117,15 @@ def lostAttention(angleOX, angleOZ, point_ir, point_center, rad):
 
 # tiredness counter
 def findTiredRatio(blinks):
-    normalizedBlinks = blinks - 10
-    if normalizedBlinks < 0:
-        normalizedBlinks = 0
-    ratio = normalizedBlinks * 5
-    if ratio > 100:
-        ratio = 100
-    return ratio
+    normalizedBlinks = blinks * 2
+    normalizedBlinks -= 30
+    normalizedBlinks *= 3
+    if normalizedBlinks >= 100:
+        return 100
+    elif normalizedBlinks <= 5:
+        return 0
+    return normalizedBlinks
+
 
 
 # happiness counter

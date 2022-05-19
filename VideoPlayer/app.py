@@ -1,10 +1,13 @@
 import pygame
 from pygame.locals import *
 from moviepy.editor import *
+
+from Python_Player.main import FONTS
 from clipPreview import preview
 import cv2
 from PySide2 import QtCore, QtWidgets
 import qimage2ndarray
+from Python_Player import main, utils
 class App:
     cameraOn = False
     def __init__(self, width = 800, height = 600, fps = 30):
@@ -49,8 +52,13 @@ class App:
             self.on_loop()
             self.on_render()
         self.on_cleanup()
+    def putIndexesOnScreen(self, frame = main.camera):
+        tiredness = main.findTiredRatio(main.BLINKS_IN_MINUTE)
+        frame = utils.textWithBackground(frame, f'Tiredness: {tiredness}', FONTS, 1.0, (30, 50), bgOpacity=0.9,
+                                             textThickness=2)
+        amazement = main.amazeCounter()
 
-
+"""
 
     def cameraSettings(self, fps):
         self.camera_capture.set(3, self.width)
@@ -65,13 +73,16 @@ class App:
             return False
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         frame = cv2.resize(frame, (self.size), interpolation=cv2.INTER_AREA)
-        """
+        
         frame here is ready for usage as an numpy array for the future analysis
-        """
+        
         # image = qimage2ndarray.array2qimage(frame)
-        """
+        
         use image for performing images
-        """
+        
+
+        return frame
+"""
 
 
 if __name__ == "__main__" :
