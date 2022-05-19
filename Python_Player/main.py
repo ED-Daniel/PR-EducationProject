@@ -120,7 +120,7 @@ def findTiredRatio(blinks):
     normalizedBlinks = blinks * 2
     normalizedBlinks -= 30
     normalizedBlinks *= 3
-    if normalizedBlinks >= 100:
+    if normalizedBlinks >= 85:
         return 100
     elif normalizedBlinks <= 5:
         return 0

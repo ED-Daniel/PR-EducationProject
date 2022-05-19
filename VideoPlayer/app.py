@@ -54,7 +54,7 @@ class App:
         self.on_cleanup()
     def putIndexesOnScreen(self, frame = main.camera):
         tiredness = main.findTiredRatio(main.BLINKS_IN_MINUTE)
-        frame = utils.textWithBackground(frame, f'Tiredness: {tiredness}', FONTS, 1.0, (30, 50), bgOpacity=0.9,
+        frame = utils.textWithBackground(frame, f'Tiredness: {tiredness}%', FONTS, 1.0, (30, 50), bgOpacity=0.9,
                                              textThickness=2)
         amazement = main.amazeCounter()
 
