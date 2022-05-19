@@ -2,12 +2,19 @@ import pygame
 from pygame.locals import *
 from moviepy.editor import *
 from clipPreview import preview
- 
+import cv2
+from PySide2 import QtCore, QtWidgets
+import qimage2ndarray
 class App:
-    def __init__(self):
+    cameraOn = False
+    def __init__(self, width = 800, height = 600, fps = 30):
         self._running = True
         self._display_surf = None
         self.size = self.width, self.height = 1200, 700
+        self.camera_capture = cv2.VideoCapture(cv2.CAP_DSHOW)
+        self.fps = fps
+        self.frameTimer = QtCore.QTimer()
+
  
     def on_init(self):
         pygame.init()
@@ -29,6 +36,7 @@ class App:
         self._display_surf.fill((255, 255, 255))
 
     def on_cleanup(self):
+        self.camera_capture.release()
         pygame.quit()
  
     def on_execute(self):
@@ -41,7 +49,31 @@ class App:
             self.on_loop()
             self.on_render()
         self.on_cleanup()
- 
+
+
+
+    def cameraSettings(self, fps):
+        self.camera_capture.set(3, self.width)
+        self.camera_capture.set(3, self.height)
+        self.frameTimer.timeout.connect(self.captureCameraStream)
+        self.frameTimer.start(int(1000 // fps))
+    def captureCameraStream(self):
+        if self.cameraOn:
+            ret, frame = self.camera_capture.read()
+            frame = cv2.flip(frame, 1)
+        if not ret:
+            return False
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        frame = cv2.resize(frame, (self.size), interpolation=cv2.INTER_AREA)
+        """
+        frame here is ready for usage as an numpy array for the future analysis
+        """
+        # image = qimage2ndarray.array2qimage(frame)
+        """
+        use image for performing images
+        """
+
+
 if __name__ == "__main__" :
     theApp = App()
     theApp.on_execute()
