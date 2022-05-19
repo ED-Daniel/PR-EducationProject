@@ -76,7 +76,7 @@ def Calibrate(camera, face_mesh, demonstrate):
     blinks = 1 
     average_blink_dur = 1
     average_between_blink_dur = 1
-    while(flag_calib is True):
+    while(flag_calib is False):
         CALIBRATING_SMILE_POSITIONS = []
         CALIBRATING_EYEBROWS_POSITIONS = []
         CALIBRATING_BLINKS_DURATION = []
