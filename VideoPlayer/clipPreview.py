@@ -1,5 +1,6 @@
 from asyncio import sleep
 from concurrent.futures import thread
+from audioPreview import previewAudio
 import threading
 import time
 
@@ -13,6 +14,7 @@ from moviepy.decorators import (
 from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip
 
 pause_event = None
+terminate_thread = False
 
 def imdisplay(imarray, globalSurface, screen=None, position=(0, 0)):
     a = pg.surfarray.make_surface(imarray.swapaxes(0, 1))
@@ -78,8 +80,8 @@ def preview(
         audio_flag = threading.Event()
 
         audiothread = threading.Thread(
-            target=clip.audio.preview,
-            args=(audio_fps, audio_buffersize, audio_nbytes, audio_flag, video_flag),
+            target=previewAudio,
+            args=(clip.audio, audio_fps, audio_buffersize, audio_nbytes, audio_flag, video_flag),
         )
         audiothread.start()
 
@@ -99,21 +101,26 @@ def preview(
     trigger = True
 
     for t in np.arange(1.0 / fps, clip.duration - 0.001, 1.0 / fps):
+        global terminate_thread
+        if terminate_thread:
+            break
+
         global pause_event
         if pause_event is not None:
             pause_event.wait()
             
         img = clip.get_frame(t)
 
-        for event in pg.event.get():
-            if event.type == pg.QUIT or (
-                event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE
-            ):
-                if audio:
-                    video_flag.clear()
-                print("Interrupt")
-                pg.quit()
-                return result
+        # Maybe it is important but I suppose no
+        # for event in pg.event.get():
+        #     if event.type == pg.QUIT or (
+        #         event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE
+        #     ):
+        #         if audio:
+        #             video_flag.clear()
+        #         print("Interrupt")
+        #         pg.quit()
+        #         return result
 
         if trigger:
             t1 = time.time()
@@ -123,12 +130,6 @@ def preview(
         diff = abs(t2 - t1)
         if (diff > 0.08):
             t0 = t2 - t if t2 > t1 else t1 - t
-            print()
-            print(diff)
-            if trigger:
-                print(t - (t1 - t0))
-            else:
-                print(t - (t2 - t0))
 
         if trigger:
             time.sleep(max(0, t - (t1 - t0)))
