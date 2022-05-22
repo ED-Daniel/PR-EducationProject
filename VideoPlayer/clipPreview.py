@@ -16,6 +16,7 @@ from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip
 pause_event = None
 terminate_thread = False
 
+
 def imdisplay(imarray, globalSurface, screen=None, position=(0, 0)):
     a = pg.surfarray.make_surface(imarray.swapaxes(0, 1))
     if screen is None:

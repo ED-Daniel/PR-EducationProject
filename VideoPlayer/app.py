@@ -11,12 +11,16 @@ from clipPreview import PreviewThread, preview
 from ui import Button, Text
 from utils import prompt_file
 
-
 class App:
-    def __init__(self):
+    cameraOn = False
+    def __init__(self, width = 800, height = 600, fps = 30):
         self._running = True
         self._display_surf = None
         self.size = self.width, self.height = 1200, 700
+        self.camera_capture = cv2.VideoCapture(cv2.CAP_DSHOW)
+        self.fps = fps
+        self.frameTimer = QtCore.QTimer()
+
  
     def on_init(self):
         pygame.init()
@@ -127,7 +131,39 @@ class App:
             self.on_loop()
             self.on_render()
         self.on_cleanup()
- 
+    def putIndexesOnScreen(self, frame = main.camera):
+        tiredness = main.findTiredRatio(main.BLINKS_IN_MINUTE)
+        frame = utils.textWithBackground(frame, f'Tiredness: {tiredness}%', main.FONTS, 1.0, (30, 50), bgOpacity=0.9,
+                                             textThickness=2)
+        amazement = main.amazeCounter()
+
+"""
+
+    def cameraSettings(self, fps):
+        self.camera_capture.set(3, self.width)
+        self.camera_capture.set(3, self.height)
+        self.frameTimer.timeout.connect(self.captureCameraStream)
+        self.frameTimer.start(int(1000 // fps))
+    def captureCameraStream(self):
+        if self.cameraOn:
+            ret, frame = self.camera_capture.read()
+            frame = cv2.flip(frame, 1)
+        if not ret:
+            return False
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        frame = cv2.resize(frame, (self.size), interpolation=cv2.INTER_AREA)
+        
+        frame here is ready for usage as an numpy array for the future analysis
+        
+        # image = qimage2ndarray.array2qimage(frame)
+        
+        use image for performing images
+        
+
+        return frame
+"""
+
+
 if __name__ == "__main__" :
     theApp = App()
     theApp.on_execute()
