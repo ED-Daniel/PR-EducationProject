@@ -1,3 +1,6 @@
+from asyncio import sleep
+from concurrent.futures import thread
+from audioPreview import previewAudio
 import threading
 import time
 
@@ -10,8 +13,8 @@ from moviepy.decorators import (
 )
 from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip
 
-pg.init()
-pg.display.set_caption("Плеер Badi")
+pause_event = None
+terminate_thread = False
 
 
 def imdisplay(imarray, globalSurface, screen=None, position=(0, 0)):
@@ -68,7 +71,6 @@ def preview(
     audio_buffersize=3000,
     audio_nbytes=2,
 ):
-
     # compute and splash the first image
     screen = surface
 
@@ -79,8 +81,8 @@ def preview(
         audio_flag = threading.Event()
 
         audiothread = threading.Thread(
-            target=clip.audio.preview,
-            args=(audio_fps, audio_buffersize, audio_nbytes, audio_flag, video_flag),
+            target=previewAudio,
+            args=(clip.audio, audio_fps, audio_buffersize, audio_nbytes, audio_flag, video_flag),
         )
         audiothread.start()
 
@@ -94,28 +96,85 @@ def preview(
     result = []
 
     t0 = time.time()
+    t1 = time.time()
+    t2 = time.time()
+
+    trigger = True
+
     for t in np.arange(1.0 / fps, clip.duration - 0.001, 1.0 / fps):
+        global terminate_thread
+        if terminate_thread:
+            break
+
+        global pause_event
+        if pause_event is not None:
+            pause_event.wait()
+            
         img = clip.get_frame(t)
 
-        for event in pg.event.get():
-            if event.type == pg.QUIT or (
-                event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE
-            ):
-                if audio:
-                    video_flag.clear()
-                print("Interrupt")
-                pg.quit()
-                return result
+        # Maybe it is important but I suppose no
+        # for event in pg.event.get():
+        #     if event.type == pg.QUIT or (
+        #         event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE
+        #     ):
+        #         if audio:
+        #             video_flag.clear()
+        #         print("Interrupt")
+        #         pg.quit()
+        #         return result
 
-            elif event.type == pg.MOUSEBUTTONDOWN:
-                x, y = pg.mouse.get_pos()
-                rgb = img[y, x]
-                result.append({"time": t, "position": (x, y), "color": rgb})
-                print(
-                    "time, position, color : ",
-                    "%.03f, %s, %s" % (t, str((x, y)), str(rgb)),
-                )
+        if trigger:
+            t1 = time.time()
+        else:
+            t2 = time.time()
 
-        t1 = time.time()
-        time.sleep(max(0, t - (t1 - t0)))
+        diff = abs(t2 - t1)
+        if (diff > 0.08):
+            t0 = t2 - t if t2 > t1 else t1 - t
+
+        if trigger:
+            time.sleep(max(0, t - (t1 - t0)))
+        else:
+            time.sleep(max(0, t - (t2 - t0)))
+        
         imdisplay(img, globalSurface, screen, position)
+        trigger = not trigger
+
+
+class PreviewThread(threading.Thread):
+    def __init__(
+        self, 
+        clip,
+        surface,
+        globalSurface,
+        position=(0, 0),
+        fps=15,
+        audio=True,
+        audio_fps=22050,
+        audio_buffersize=3000,
+        audio_nbytes=2
+    ):
+        threading.Thread.__init__(self)
+        self.clip = clip
+        self.surface = surface
+        self.globalSurface = globalSurface
+        self.position = position
+        self.fps = fps
+        self.audio = audio
+        self.audio_fps = audio_fps
+        self.audio_buffersize = audio_buffersize
+        self.audio_nbytes = audio_nbytes
+    
+    def run(self):
+        preview(
+            self.clip,
+            self.surface,
+            self.globalSurface,
+            self.position,
+            self.fps,
+            self.audio,
+            self.audio_fps,
+            self.audio_buffersize,
+            self.audio_nbytes
+        )
+
