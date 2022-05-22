@@ -184,6 +184,7 @@ def Calibrate(camera, face_mesh):
         else:
             flag_calib = False
         if flag_calib is False:
+            print(len(CALIBRATING_SMILE_POSITIONS), len(CALIBRATING_EYEBROWS_POSITIONS), len(CALIBRATING_BLINKS_DURATION), CALIBRATION_DURATION, len(CALIBRATING_BETWEEN_BLINKS_DURATION))
             print("\n\n\nError, recalibrating\n\n\n")
     
     if quit is True: 

@@ -1,6 +1,8 @@
 import cv2 as cv 
 import numpy as np
 import math
+import tkinter
+import tkinter.filedialog
 
 # colors 
 # values =(blue, green, red) opencv accepts BGR values not RGB
@@ -167,3 +169,12 @@ def getXYZAverage(positions):
     avg_y = sum([i[1] for i in positions]) / len(positions)
     avg_z = sum([i[2] for i in positions]) / len(positions)
     return avg_x, avg_y, avg_z
+
+
+def prompt_file():
+        """Create a Tk file dialog and cleanup when finished"""
+        top = tkinter.Tk()
+        top.withdraw()  # hide window
+        file_name = tkinter.filedialog.askopenfilename(parent=top, filetypes=[("Video Files", ".mp4")])
+        top.destroy()
+        return file_name
