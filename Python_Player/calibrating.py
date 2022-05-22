@@ -67,7 +67,7 @@ def blinkRatio(img, landmarks, right_indices, left_indices):
     ratio = (reRatio+leRatio)/2
     return ratio 
 
-def Calibrate(camera, face_mesh, demonstrate):
+def Calibrate(camera, face_mesh):
     flag_calib = False
     # arrays
     lips_width = 1
@@ -76,6 +76,7 @@ def Calibrate(camera, face_mesh, demonstrate):
     blinks = 1 
     average_blink_dur = 1
     average_between_blink_dur = 1
+    # quit = False
     while(flag_calib is False):
         CALIBRATING_SMILE_POSITIONS = []
         CALIBRATING_EYEBROWS_POSITIONS = []
@@ -96,8 +97,8 @@ def Calibrate(camera, face_mesh, demonstrate):
             frame_height, frame_width= frame.shape[:2]
             rgb_frame = cv.cvtColor(frame, cv.COLOR_RGB2BGR)
             results  = face_mesh.process(rgb_frame)
-            x = frame_width / 2
-            y = frame_height / 2 
+            # x = frame_width / 2
+            # y = frame_height / 2 
             
             if results.multi_face_landmarks:
                 mesh_coords, mesh_coords_z = landmarksDetection(frame, results)
@@ -109,10 +110,10 @@ def Calibrate(camera, face_mesh, demonstrate):
                 CALIBRATING_SMILE_POSITIONS.append(tuple([leftCorner, rightCorner]))
                 
                 # Calibrating amaze
-                #temp_eyebrow_height_r = utils.euclaideanDistance3D(mesh_coords_z[4], mesh_coords_z[193])
-                #temp_eyebrow_height_l = utils.euclaideanDistance3D(mesh_coords_z[4], mesh_coords_z[417])
                 temp_eyebrow_height_l = utils.euclaideanDistance2D(mesh_coords[252], mesh_coords[295])
                 temp_eyebrow_height_r = utils.euclaideanDistance2D(mesh_coords[22], mesh_coords[65])
+                # temp_eyebrow_height_l = utils.euclaideanDistance3D(mesh_coords_z[252], mesh_coords_z[295])
+                # temp_eyebrow_height_r = utils.euclaideanDistance3D(mesh_coords_z[22], mesh_coords_z[65])
                 CALIBRATING_EYEBROWS_POSITIONS.append(tuple([temp_eyebrow_height_l, temp_eyebrow_height_r]))
                 
                 # Calibrating tiredness
@@ -132,8 +133,8 @@ def Calibrate(camera, face_mesh, demonstrate):
                 if remaining_time <= 0:
                     flag_calib = True
                     break
-                cv.circle(frame, center = (round(x), round(y)), radius =100, color =utils.RED, thickness=-1)
-                utils.colorBackgroundText(frame, f"Please, look at the red circle and don't move. Remaining time: {round(remaining_time)}", FONTS, 1, (round(x - 570), round(y) - 200), 2, utils.RED, utils.YELLOW, 8, 8)
+                # cv.circle(frame, center = (round(x), round(y)), radius =100, color =utils.RED, thickness=-1)
+                # utils.colorBackgroundText(frame, f"Please, look at the red circle and don't move. Remaining time: {round(remaining_time)}", FONTS, 1, (round(x - 570), round(y) - 200), 2, utils.RED, utils.YELLOW, 8, 8)
             else:
                 # cannot detect face
                 lost_face_detec_dur = time.time() - face_detection_start_timer
@@ -147,15 +148,16 @@ def Calibrate(camera, face_mesh, demonstrate):
                     start_time = time.time()
                     BLINKS_COUNTER = 0
                     CEF_COUNTER = 0            
-                    cv.destroyAllWindows()
+                    # cv.destroyAllWindows()
                     continue
                     
-            if demonstrate is True: cv.imshow('Calibrating', frame)
+            # if demonstrate is True: cv.imshow('Calibrating', frame)
             key = cv.waitKey(2)
-            if key==ord('q') or key==ord('Q'):
-                break
+            # if key==ord('q') or key==ord('Q'):
+                # quit = True
+                # break
         
-        cv.destroyAllWindows()
+        # if quit is True: break
         
         #average
         if len(CALIBRATING_SMILE_POSITIONS) > 0:
@@ -176,15 +178,17 @@ def Calibrate(camera, face_mesh, demonstrate):
             if average_blink_dur <= 0: average_blink_dur = 1
         else:
             flag_calib = False
-        if len(CALIBRATING_BLINKS_DURATION) > 0:
-            average_between_blink_dur = sum([i for i in CALIBRATING_BLINKS_DURATION]) / len(CALIBRATING_BLINKS_DURATION)
+        if len(CALIBRATING_BETWEEN_BLINKS_DURATION) > 0:
+            average_between_blink_dur = sum([i for i in CALIBRATING_BETWEEN_BLINKS_DURATION]) / len(CALIBRATING_BETWEEN_BLINKS_DURATION)
             if average_between_blink_dur <= 0: average_between_blink_dur = 1
         else:
             flag_calib = False
         if flag_calib is False:
             print("\n\n\nError, recalibrating\n\n\n")
     
-    #printing results
+    if quit is True: 
+        flag_calib = False
+        
     print("CALIBRATING RESULTS: ")
     print("AVERAGE MOUTH LENGTH: ", lips_width)
     print("AVERAGE LEFT EYEBROW HEIGHT: ", eyebrow_height_l)
@@ -192,4 +196,5 @@ def Calibrate(camera, face_mesh, demonstrate):
     print("AVERAGE BLINKS PER MINUTE: ", blinks)
     print("AVERAGE BLINK DURATION: ", average_blink_dur)
     print("AVERAGE BETWEEN BLINK DURATION: ", average_between_blink_dur)
+    # cv.destroyAllWindows()
     return flag_calib, lips_width, eyebrow_height_l, eyebrow_height_r, blinks, average_blink_dur, average_between_blink_dur
