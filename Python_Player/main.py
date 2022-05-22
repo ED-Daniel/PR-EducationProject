@@ -30,7 +30,7 @@ RATIO = 5.5
 CLOSED_EYES_FRAME = 1
 FONTS = cv.FONT_HERSHEY_COMPLEX
 
-#const
+# const
 KWIDTH = 1.2
 KHEIGHT = 2
 KTRACK = 0.7
@@ -40,35 +40,42 @@ KAMAZE = 0.65
 KHAPPY = 0.2
 
 # face bounder indices 
-FACE_OVAL = [ 10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109 ]
+FACE_OVAL = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152, 148, 176,
+             149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109]
 
 # lips indices for Landmarks
-LIPS = [ 61, 146, 91, 181, 84, 17, 314, 405, 321, 375,291, 308, 324, 318, 402, 317, 14, 87, 178, 88, 95, 185, 40, 39, 37, 0 ,267 ,269 ,270 ,409, 415, 310, 311, 312, 13, 82, 81, 42, 183, 78 ]
-LOWER_LIPS = [ 61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291, 308, 324, 318, 402, 317, 14, 87, 178, 88, 95 ]
-UPPER_LIPS = [ 185, 40, 39, 37,0 ,267 ,269 ,270 ,409, 415, 310, 311, 312, 13, 82, 81, 42, 183, 78 ] 
+LIPS = [61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291, 308, 324, 318, 402, 317, 14, 87, 178, 88, 95, 185, 40, 39,
+        37, 0, 267, 269, 270, 409, 415, 310, 311, 312, 13, 82, 81, 42, 183, 78]
+LOWER_LIPS = [61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291, 308, 324, 318, 402, 317, 14, 87, 178, 88, 95]
+UPPER_LIPS = [185, 40, 39, 37, 0, 267, 269, 270, 409, 415, 310, 311, 312, 13, 82, 81, 42, 183, 78]
 
 # Left eyes indices 
-LEFT_EYE = [ 362, 382, 381, 380, 374, 373, 390, 249, 263, 466, 388, 387, 386, 385, 384, 398 ]
-LEFT_EYEBROW = [ 336, 296, 334, 293, 300, 276, 283, 282, 295, 285 ]
-LEFT_IRIS = [ 474, 475, 476, 477 ]
+LEFT_EYE = [362, 382, 381, 380, 374, 373, 390, 249, 263, 466, 388, 387, 386, 385, 384, 398]
+LEFT_EYEBROW = [336, 296, 334, 293, 300, 276, 283, 282, 295, 285]
+LEFT_IRIS = [474, 475, 476, 477]
 
 # Right eyes indices
-RIGHT_EYE = [ 33, 7, 163, 144, 145, 153, 154, 155, 133, 173, 157, 158, 159, 160, 161, 246 ]  
-RIGHT_EYEBROW = [ 70, 63, 105, 66, 107, 55, 65, 52, 53, 46 ]
-RIGHT_IRIS = [ 469, 470, 471, 472 ]
+RIGHT_EYE = [33, 7, 163, 144, 145, 153, 154, 155, 133, 173, 157, 158, 159, 160, 161, 246]
+RIGHT_EYEBROW = [70, 63, 105, 66, 107, 55, 65, 52, 53, 46]
+RIGHT_IRIS = [469, 470, 471, 472]
 
 map_face_mesh = mp.solutions.face_mesh
 
 # camera object 
 camera = cv.VideoCapture(0)
 
+
 # landmark detection
 def landmarksDetection(img, results):
-    img_height, img_width= img.shape[:2]
-    mesh_coord = [(int(point.x * img_width), int(point.y * img_height)) for point in results.multi_face_landmarks[0].landmark]#2D landmarks
-    mesh_coord_z = [(int(point.x * img_width), int(point.y * img_height), 1 / (abs(int(point.z * 100)) + 0.000001) * 100) for point in results.multi_face_landmarks[0].landmark]#3D landmarks (z coords. are not real)
+    img_height, img_width = img.shape[:2]
+    mesh_coord = [(int(point.x * img_width), int(point.y * img_height)) for point in
+                  results.multi_face_landmarks[0].landmark]  # 2D landmarks
+    mesh_coord_z = [
+        (int(point.x * img_width), int(point.y * img_height), 1 / (abs(int(point.z * 100)) + 0.000001) * 100) for point
+        in results.multi_face_landmarks[0].landmark]  # 3D landmarks (z coords. are not real)
     return mesh_coord, mesh_coord_z
 
+  
 # blinking Ratio
 def blinkRatio(img, landmarks):
     # RIGTH_EYE
@@ -91,19 +98,20 @@ def blinkRatio(img, landmarks):
     #right eye
     rhDistance = utils.euclaideanDistance2D(rh_right, rh_left)
     rvDistance = utils.euclaideanDistance2D(rv_top, rv_bottom)
-    #left eye
+    # left eye
     lvDistance = utils.euclaideanDistance2D(lv_top, lv_bottom)
     lhDistance = utils.euclaideanDistance2D(lh_right, lh_left)
     try:
-        reRatio = rhDistance/rvDistance
+        reRatio = rhDistance / rvDistance
     except:
         reRatio = rhDistance
     try:
-        leRatio = lhDistance/lvDistance
+        leRatio = lhDistance / lvDistance
     except:
         leRatio = lhDistance
-    ratio = (reRatio+leRatio)/2
-    return ratio 
+    ratio = (reRatio + leRatio) / 2
+    return ratio
+
 
 # attention tracking
 def lostAttention(point_ir, point_center, rad, eyes_closed):
@@ -158,6 +166,7 @@ def amazeCounter(dl, dr, angle):
     # max_h = minLength * 0.045
     max_h = minLength * KAMAZE
     percent = round((((dr + dl) / 2) - minLength) / max_h * 100)
+
     if angle > 30: percent -= 20
     if percent > 100: percent = 100
     elif percent < 20: percent = 0
@@ -216,10 +225,10 @@ with map_face_mesh.FaceMesh(min_detection_confidence = KDETECT, min_tracking_con
             
             # resizing frame
             frame = cv.resize(frame, None, fx=2, fy=2, interpolation=cv.INTER_CUBIC)
-            frame_height, frame_width= frame.shape[:2]
+            frame_height, frame_width = frame.shape[:2]
             rgb_frame = cv.cvtColor(frame, cv.COLOR_RGB2BGR)
-            results  = face_mesh.process(rgb_frame)
-            
+            results = face_mesh.process(rgb_frame)
+
             if results.multi_face_landmarks:
                 mesh_coords, mesh_coords_z = landmarksDetection(frame, results)
                 ratio = blinkRatio(frame, mesh_coords)
@@ -256,7 +265,7 @@ with map_face_mesh.FaceMesh(min_detection_confidence = KDETECT, min_tracking_con
 #                 utils.pollyLines(frame,  [mesh_coords[p] for p in LEFT_IRIS ], utils.PINK)
 #                 utils.pollyLines(frame,  [mesh_coords[p] for p in RIGHT_IRIS ], utils.PINK)
 # =============================================================================
-                
+
                 # head angles
                 p1 = (0, int(frame_height / 2))
                 p2 = (int(frame_width), int(frame_height / 2))
@@ -283,8 +292,10 @@ with map_face_mesh.FaceMesh(min_detection_confidence = KDETECT, min_tracking_con
                 # tracking iris (if not blinking)           
                 if ratio <= 5.5:
                     r = utils.seg_intersect(np.array(r_iris_coords[0]), np.array(r_iris_coords[2]), np.array(r_iris_coords[1]), np.array(r_iris_coords[3]))
+
                     r_iris_center = [round(r[0]), round(r[1])]
-                    l = utils.seg_intersect(np.array(l_iris_coords[0]), np.array(l_iris_coords[2]), np.array(l_iris_coords[1]), np.array(l_iris_coords[3]))
+                    l = utils.seg_intersect(np.array(l_iris_coords[0]), np.array(l_iris_coords[2]),
+                                            np.array(l_iris_coords[1]), np.array(l_iris_coords[3]))
                     l_iris_center = [round(l[0]), round(l[1])]
                     try:
                         c_r = utils.seg_intersect(np.array(mesh_coords[173]), np.array(mesh_coords[33]), np.array(mesh_coords[159]), np.array(mesh_coords[153]))
