@@ -1,4 +1,3 @@
-from turtle import pos
 import pygame
 from config import *
 

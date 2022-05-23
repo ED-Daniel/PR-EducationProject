@@ -1,13 +1,10 @@
-from concurrent.futures import thread
 import threading
 import pygame
-from requests import delete
 import clipPreview
 import audioPreview
-from pygame.locals import *
-from moviepy.editor import *
+from moviepy.editor import VideoFileClip
 from config import *
-from clipPreview import PreviewThread, preview
+from clipPreview import PreviewThread
 from ui import Button, Text
 from utils import prompt_file
 import time
@@ -32,7 +29,7 @@ class App:
         self.load_button = Button(self.width - 250, self.height - 589, 200, 75, self._display_surf)
         self.play_button = Button(self.width - 250, self.height - 464, 200, 75, self._display_surf)
         self.load_button.add_text("Open file")
-        self.play_button.add_text("Pause")
+        self.play_button.add_text("Play")
 
         detector_font_size = 25
         text_padding = 33
@@ -98,6 +95,7 @@ class App:
                 self.videoSurface = pygame.Surface(clip.size)
                 self.p_thread = PreviewThread(clip, self.videoSurface, self._display_surf, (50, (self.height - clip.size[1]) // 2), fps=24)
                 self.p_thread.start()
+                self.play_button.add_text("Pause")
                 return
 
             self.pause = not self.pause
@@ -119,10 +117,14 @@ class App:
                 self.p_thread = PreviewThread(clip, self.videoSurface, self._display_surf, (50, (self.height - clip.size[1]) // 2), fps=24)
                 self.p_thread.start()
                 self.loop_video = False
+                self.play_button.add_text("Pause")
             else:
                 print("Error")
 
     def on_loop(self):
+        if self.p_thread is not None and not self.p_thread.is_alive():
+            self.play_button.add_text('Play')
+
         if self.p_thread is not None and not self.p_thread.is_alive() and self.loop_video:
             time.sleep(0.5)
             clip = VideoFileClip(self.clip_file_name).resize(width=self.width - 350)

@@ -1,11 +1,9 @@
-from random import random
 import cv2 as cv
 import mediapipe as mp
 import time
 import utils, calibrating
 import numpy as np
 import vg
-import random
 
 from app import AppThread
 
@@ -370,7 +368,7 @@ with map_face_mesh.FaceMesh(min_detection_confidence = KDETECT, min_tracking_con
                     BLINKS_IN_TIME = 0
                 # utils.colorBackgroundText(frame, f'Tiredness: {tiredRatio}%', FONTS, 1.0, (frame_width - 350, 200), 2, (0,255,0), utils.RED, 8, 8)
                 
-                # head fulctuation
+                # head fluctuation
                 if abs(90 - angle_h) > HEAD_ANGLE and time.time() - head_check_start_time >= 1:
                     HEAD_FLUCTUATION_COUNTER += 1
                     head_check_start_time = time.time()
