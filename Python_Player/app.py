@@ -62,7 +62,7 @@ class App:
         self.pause = False
 
         self.loop_video = True
-        self.clip_file_name = 'Python_Player\loader.mp4'
+        self.clip_file_name = 'Python_Player\loaderAlpha.mp4'
         clip = VideoFileClip(self.clip_file_name).resize(width=self.width - 350)
         self.videoSurface = pygame.Surface(clip.size)
         self.p_thread = PreviewThread(clip, self.videoSurface, self._display_surf, (50, (self.height - clip.size[1]) // 2), fps=24)
@@ -72,7 +72,7 @@ class App:
 
     def clear_video_space(self):
         self.loop_video = False
-        self.clip_file_name = 'Python_Player\loader.mp4'
+        self.clip_file_name = 'Python_Player\loaderAlpha.mp4'
         clip = VideoFileClip(self.clip_file_name).resize(width=self.width - 350)
         self.videoSurface = pygame.Surface(clip.size)
         self.videoSurface.fill(BACKGROUND_COLOR)

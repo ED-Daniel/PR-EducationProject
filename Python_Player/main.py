@@ -228,6 +228,8 @@ with map_face_mesh.FaceMesh(min_detection_confidence = KDETECT, min_tracking_con
         RECALIBRATING_CEF_COUNTER = 0
 
         player_thread.end_load()
+        send_async_indexes_counter = 0
+        send_async_indexes_max = 100
 
         while True:
             FRAME_COUNTER +=1 # frame counter
@@ -381,14 +383,18 @@ with map_face_mesh.FaceMesh(min_detection_confidence = KDETECT, min_tracking_con
                 if time.time() - dur_between_blink_start_timer >= ENGAGEMENT_DURATION and len(AV_BETWEEN_BLINKS_DURATION) > 0:
                     dur_between_blink_start_timer = time.time()
                     engagementRatio = engageCounter(BLINKS_IN_TIME * (60 / TIREDNESS_DURATION), sum([i for i in AV_BETWEEN_BLINKS_DURATION]) / len(AV_BETWEEN_BLINKS_DURATION), HEAD_FLUCTUATION_IN_TIME)
- 
-                player_thread.set_indexes(
-                    happiness,
-                    engagementRatio,
-                    tiredRatio,
-                    amazement,
-                    attention_trigger
-                )
+
+                send_async_indexes_counter += 1
+
+                if send_async_indexes_counter >= send_async_indexes_max:
+                    player_thread.set_indexes(
+                        happiness,
+                        engagementRatio,
+                        tiredRatio,
+                        amazement,
+                        attention_trigger
+                    )
+                    send_async_indexes_counter = 0
                     # showing blinks in minute
 # =============================================================================
 #                     utils.colorBackgroundText(frame, f'Blinks in minute: {BLINKS_IN_MINUTE}', FONTS, 1.0, (30,200), 2, (0,255,0), utils.RED, 8, 8)
