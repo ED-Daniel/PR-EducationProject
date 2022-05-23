@@ -103,7 +103,7 @@ def preview(
 
     for t in np.arange(1.0 / fps, clip.duration - 0.001, 1.0 / fps):
         test_start = time.time()
-        
+
         global terminate_thread
         if terminate_thread:
             break
@@ -144,7 +144,7 @@ def preview(
         trigger = not trigger
 
         test_end = time.time()
-        print(test_end - test_start)
+        # print(test_end - test_start)
 
 
 class PreviewThread(threading.Thread):

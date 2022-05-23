@@ -517,7 +517,7 @@ with map_face_mesh.FaceMesh(min_detection_confidence = KDETECT, min_tracking_con
             # calculating FPS
             end_time = time.time() - fps_start_time
             fps = FRAME_COUNTER / end_time
-            # !!! Вернуть считвание клавиши сюда
+            cv.waitKey(1)
             
     # cv.destroyAllWindows()
     camera.release()
