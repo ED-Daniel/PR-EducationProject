@@ -65,6 +65,7 @@ def previewAudio(
         diff = abs(t2 - t1)
         if (diff > 0.25):
             time.sleep(0.2)
+            print('AUDIO time correction')
         
         trigger = not trigger
 

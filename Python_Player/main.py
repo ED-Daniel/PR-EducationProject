@@ -119,7 +119,11 @@ def blinkRatio(img, landmarks):
 def lostAttention(point_ir, point_center, rad, eyes_closed):
     #normalizedAngleOX = abs(90 - angleOX)
     flag = False
-    if (point_ir[0] - point_center[0])**2 + (point_ir[1] - point_center[1])**2 <= rad**2: flag = True
+    try:
+        if (point_ir[0] - point_center[0])**2 + (point_ir[1] - point_center[1])**2 <= rad**2: flag = True
+    except:
+        print('EXCEPTION AT LOST ATTENTION FUNC')
+        return False
     if flag is False or eyes_closed > EYES_CLOSE_DURATION is True:
         return True
     return False
@@ -222,6 +226,8 @@ with map_face_mesh.FaceMesh(min_detection_confidence = KDETECT, min_tracking_con
         RECALIBRATING_BETWEEN_BLINKS_DURATION = []
         RECALIBRATING_BLINKS_COUNTER = 0
         RECALIBRATING_CEF_COUNTER = 0
+
+        player_thread.end_load()
 
         while True:
             FRAME_COUNTER +=1 # frame counter

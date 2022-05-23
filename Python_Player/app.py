@@ -61,11 +61,27 @@ class App:
         self.p_thread = None
         self.pause = False
 
+        self.loop_video = True
+        self.clip_file_name = 'Python_Player\loader.mp4'
+        clip = VideoFileClip(self.clip_file_name).resize(width=self.width - 350)
+        self.videoSurface = pygame.Surface(clip.size)
+        self.p_thread = PreviewThread(clip, self.videoSurface, self._display_surf, (50, (self.height - clip.size[1]) // 2), fps=24)
+        self.p_thread.start()
+
         return True
+
+    def clear_video_space(self):
+        self.loop_video = False
+        self.clip_file_name = 'Python_Player\loader.mp4'
+        clip = VideoFileClip(self.clip_file_name).resize(width=self.width - 350)
+        self.videoSurface = pygame.Surface(clip.size)
+        self.videoSurface.fill(BACKGROUND_COLOR)
+        self.p_thread.join()
+        self._display_surf.blit(self.videoSurface, (50, (self.height - clip.size[1]) // 2))
+        print("GELX")
 
     def update_text(self, happiness, engagement, tiredness, astonishment, lost_attention):
         self.happiness_counter.change_text(str(happiness) + '%')
-        print(self.happiness_counter.text)
         self.engagement_counter.change_text(str(engagement) + '%')
         self.tiredness_counter.change_text(str(tiredness) + '%')
         self.astonishment_counter.change_text(str(astonishment) + '%')
@@ -76,7 +92,16 @@ class App:
             self._running = False
 
         if event.type == pygame.MOUSEBUTTONDOWN and self.play_button.is_mouse_over():
+            if self.p_thread is not None and not self.p_thread.is_alive():
+                time.sleep(0.5)
+                clip = VideoFileClip(self.clip_file_name).resize(width=self.width - 350)
+                self.videoSurface = pygame.Surface(clip.size)
+                self.p_thread = PreviewThread(clip, self.videoSurface, self._display_surf, (50, (self.height - clip.size[1]) // 2), fps=24)
+                self.p_thread.start()
+                return
+
             self.pause = not self.pause
+
             if self.pause:
                 clipPreview.pause_event = threading.Event()
                 audioPreview.pause_event = threading.Event()
@@ -93,11 +118,17 @@ class App:
                 self.videoSurface = pygame.Surface(clip.size)
                 self.p_thread = PreviewThread(clip, self.videoSurface, self._display_surf, (50, (self.height - clip.size[1]) // 2), fps=24)
                 self.p_thread.start()
+                self.loop_video = False
             else:
                 print("Error")
 
     def on_loop(self):
-        pass
+        if self.p_thread is not None and not self.p_thread.is_alive() and self.loop_video:
+            time.sleep(0.5)
+            clip = VideoFileClip(self.clip_file_name).resize(width=self.width - 350)
+            self.videoSurface = pygame.Surface(clip.size)
+            self.p_thread = PreviewThread(clip, self.videoSurface, self._display_surf, (50, (self.height - clip.size[1]) // 2), fps=24)
+            self.p_thread.start()
 
     def on_render(self):
         self.play_button.render()
@@ -150,7 +181,9 @@ class AppThread(threading.Thread):
 
     def set_indexes(self, happiness, engagement, tiredness, astonishment, lost_attention):
         self.app.update_text(happiness, engagement, tiredness, astonishment, lost_attention)
-        print('set')
     
     def get_app(self):
         return self.app
+
+    def end_load(self):
+        self.app.clear_video_space()

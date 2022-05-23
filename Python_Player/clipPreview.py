@@ -102,6 +102,8 @@ def preview(
     trigger = True
 
     for t in np.arange(1.0 / fps, clip.duration - 0.001, 1.0 / fps):
+        test_start = time.time()
+        
         global terminate_thread
         if terminate_thread:
             break
@@ -129,8 +131,9 @@ def preview(
             t2 = time.time()
 
         diff = abs(t2 - t1)
-        if (diff > 0.08):
+        if (diff > 0.15):
             t0 = t2 - t if t2 > t1 else t1 - t
+            print('VIDEO TIME CORRECTION')
 
         if trigger:
             time.sleep(max(0, t - (t1 - t0)))
@@ -139,6 +142,9 @@ def preview(
         
         imdisplay(img, globalSurface, screen, position)
         trigger = not trigger
+
+        test_end = time.time()
+        print(test_end - test_start)
 
 
 class PreviewThread(threading.Thread):
